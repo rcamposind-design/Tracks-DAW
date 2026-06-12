@@ -1,8 +1,5 @@
-name: Build IPA (unsigned)
-on:
-  push:
-    branches: [ main ]
-  workflow_dispatch:
+name: Build IPA
+on: [push, workflow_dispatch]
 
 jobs:
   build:
@@ -21,39 +18,33 @@ jobs:
       - name: Generate Xcode Project
         run: xcodegen
 
-      - name: Show build settings
-        run: |
-          xcodebuild -project Tracks.xcodeproj -scheme Tracks -showBuildSettings | head -50
-
-      - name: Build .app (Debug, unsigned)
+      - name: Build .app
         run: |
           xcodebuild -project Tracks.xcodeproj \
             -scheme Tracks \
             -sdk iphoneos \
             -configuration Debug \
-            -derivedDataPath ${{ runner.temp }}/build \
+            -derivedDataPath /tmp/build \
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
-            build
+            build 2>&1
 
-      - name: Find .app
-        run: find ${{ runner.temp }}/build -name "*.app" -type d
-
-      - name: Package as IPA
+      - name: Find and Package .app
         run: |
-          APP=$(find ${{ runner.temp }}/build -name "Tracks.app" -type d | head -1)
+          APP=$(find /tmp/build -name "Tracks.app" -type d | head -1)
+          echo "Found: $APP"
           if [ -z "$APP" ]; then
-            echo "APP NOT FOUND!"
+            echo "ERROR: .app not found"
+            ls -R /tmp/build 2>/dev/null | head -50
             exit 1
           fi
-          mkdir -p ${{ runner.temp }}/ipa/Payload
-          cp -R "$APP" ${{ runner.temp }}/ipa/Payload/
-          cd ${{ runner.temp }}/ipa
+          mkdir -p Payload
+          cp -R "$APP" Payload/
           zip -r Tracks.ipa Payload/
 
       - name: Upload IPA
         uses: actions/upload-artifact@v4
         with:
           name: Tracks-iOS
-          path: ${{ runner.temp }}/ipa/Tracks.ipa
+          path: Tracks.ipa
