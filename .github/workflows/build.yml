@@ -1,4 +1,4 @@
-name: Build and Deploy
+name: Build IPA (unsigned)
 on:
   push:
     branches: [ main ]
@@ -21,27 +21,27 @@ jobs:
       - name: Generate Xcode Project
         run: xcodegen
 
-      - name: Build and Archive
+      - name: Build .app (unsigned)
         run: |
           xcodebuild -project Tracks.xcodeproj \
             -scheme Tracks \
             -sdk iphoneos \
             -configuration Release \
-            -archivePath ${{ runner.temp }}/Tracks.xcarchive \
-            -allowProvisioningUpdates \
-            DEVELOPMENT_TEAM=${{ secrets.TEAM_ID }} \
-            archive
+            -derivedDataPath ${{ runner.temp }}/build \
+            CODE_SIGN_IDENTITY="" \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGNING_ALLOWED=NO \
+            build
 
-      - name: Export IPA
+      - name: Package as IPA
         run: |
-          xcodebuild -exportArchive \
-            -archivePath ${{ runner.temp }}/Tracks.xcarchive \
-            -exportPath ${{ runner.temp }}/Tracks.ipa \
-            -exportOptionsPlist exportOptions.plist \
-            -allowProvisioningUpdates
+          mkdir -p ${{ runner.temp }}/ipa/Payload
+          cp -R ${{ runner.temp }}/build/Build/Products/Release-iphoneos/Tracks.app ${{ runner.temp }}/ipa/Payload/
+          cd ${{ runner.temp }}/ipa
+          zip -r Tracks.ipa Payload/
 
       - name: Upload IPA
         uses: actions/upload-artifact@v4
         with:
           name: Tracks-iOS
-          path: ${{ runner.temp }}/Tracks.ipa
+          path: ${{ runner.temp }}/ipa/Tracks.ipa
