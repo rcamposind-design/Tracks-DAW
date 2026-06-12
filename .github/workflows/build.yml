@@ -12,21 +12,13 @@ jobs:
         with:
           xcode-version: '16.2'
 
-      - name: Check Xcode version
-        run: xcodebuild -version
-
       - name: Install XcodeGen
         run: brew install xcodegen
 
       - name: Generate project
         run: xcodegen
 
-      - name: Check project exists and list schemes
-        run: |
-          ls -la *.xcodeproj
-          xcodebuild -list -project Tracks.xcodeproj 2>&1
-
-      - name: Try build
+      - name: Build
         run: |
           xcodebuild -project Tracks.xcodeproj \
             -scheme Tracks \
@@ -36,21 +28,23 @@ jobs:
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
-            build 2>&1 || true
+            build 2>&1
 
-      - name: Show derived data
-        run: find /tmp/build -name "*.app" -o -name "*.log" 2>/dev/null | head -20 || echo "No derived data found"
-
-      - name: Upload full log on failure
-        if: failure()
+      - name: Package .ipa
         run: |
-          find /tmp -name "*.log" -type f 2>/dev/null | head -5
-          xcodebuild -project Tracks.xcodeproj \
-            -scheme Tracks \
-            -sdk iphoneos \
-            -configuration Debug \
-            -derivedDataPath /tmp/build \
-            CODE_SIGN_IDENTITY="" \
-            CODE_SIGNING_REQUIRED=NO \
-            CODE_SIGNING_ALLOWED=NO \
-            build 2>&1 | tail -100
+          APP=$(find /tmp/build -name "Tracks.app" -type d | head -1)
+          echo "Found: $APP"
+          if [ -z "$APP" ]; then
+            echo "ERROR: .app not found. Build output:"
+            find /tmp/build -type d -maxdepth 4 2>/dev/null
+            exit 1
+          fi
+          mkdir -p Payload
+          cp -R "$APP" Payload/
+          zip -r Tracks.ipa Payload/
+
+      - name: Upload IPA
+        uses: actions/upload-artifact@v4
+        with:
+          name: Tracks-iOS
+          path: Tracks.ipa
