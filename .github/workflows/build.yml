@@ -21,22 +21,34 @@ jobs:
       - name: Generate Xcode Project
         run: xcodegen
 
-      - name: Build .app (unsigned)
+      - name: Show build settings
+        run: |
+          xcodebuild -project Tracks.xcodeproj -scheme Tracks -showBuildSettings | head -50
+
+      - name: Build .app (Debug, unsigned)
         run: |
           xcodebuild -project Tracks.xcodeproj \
             -scheme Tracks \
             -sdk iphoneos \
-            -configuration Release \
+            -configuration Debug \
             -derivedDataPath ${{ runner.temp }}/build \
             CODE_SIGN_IDENTITY="" \
             CODE_SIGNING_REQUIRED=NO \
             CODE_SIGNING_ALLOWED=NO \
             build
 
+      - name: Find .app
+        run: find ${{ runner.temp }}/build -name "*.app" -type d
+
       - name: Package as IPA
         run: |
+          APP=$(find ${{ runner.temp }}/build -name "Tracks.app" -type d | head -1)
+          if [ -z "$APP" ]; then
+            echo "APP NOT FOUND!"
+            exit 1
+          fi
           mkdir -p ${{ runner.temp }}/ipa/Payload
-          cp -R ${{ runner.temp }}/build/Build/Products/Release-iphoneos/Tracks.app ${{ runner.temp }}/ipa/Payload/
+          cp -R "$APP" ${{ runner.temp }}/ipa/Payload/
           cd ${{ runner.temp }}/ipa
           zip -r Tracks.ipa Payload/
 
