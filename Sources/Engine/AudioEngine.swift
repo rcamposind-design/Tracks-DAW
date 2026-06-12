@@ -41,9 +41,8 @@ final class AudioEngine {
         engine.attach(mixer)
         engine.connect(mixer, to: engine.mainMixerNode, format: nil)
         trackMixers[track.id] = mixer
-
-        guard let type = track.auType, let sub = track.auSubType, let man = track.auManufacturer else { return }
-        loadAU(trackID: track.id, type: type, subType: sub, manufacturer: man)
+        guard let t = track.auType, let s = track.auSubType, let m = track.auManufacturer else { return }
+        loadAU(trackID: track.id, type: t, subType: s, manufacturer: m)
     }
 
     func loadAU(trackID: UUID, type: UInt32, subType: UInt32, manufacturer: UInt32) {
@@ -54,13 +53,13 @@ final class AudioEngine {
             componentFlags: 0,
             componentFlagsMask: 0
         )
-        guard let audioUnit = try? AVAudioUnit(componentDescription: desc) else { return }
-        engine.attach(audioUnit)
+        guard let au = try? AVAudioUnit(componentDescription: desc) else { return }
+        engine.attach(au)
         if let mixer = trackMixers[trackID] {
             engine.disconnectNodeInput(mixer)
-            engine.connect(audioUnit, to: mixer, format: nil)
+            engine.connect(au, to: mixer, format: nil)
         }
-        trackAudioUnits[trackID] = audioUnit
+        trackAudioUnits[trackID] = au
     }
 
     func removeTrack(_ id: UUID) {
@@ -73,21 +72,24 @@ final class AudioEngine {
 
     func sendMIDI(trackID: UUID, status: UInt8, data1: UInt8, data2: UInt8) {
         guard let au = trackAudioUnits[trackID] else { return }
-        MusicDeviceMIDIEvent(au.audioUnit, status, data1, data2, 0)
+        MusicDeviceMIDIEvent(au.audioUnit, UInt32(status), UInt32(data1), UInt32(data2), 0)
     }
 
     func sendNoteOn(trackID: UUID, note: UInt8, velocity: UInt8, channel: UInt8) {
-        sendMIDI(trackID: trackID, status: 0x90 | channel, data1: note, data2: velocity)
+        let st = UInt8(0x90) | (channel & 0x0F)
+        sendMIDI(trackID: trackID, status: st, data1: note, data2: velocity)
     }
 
     func sendNoteOff(trackID: UUID, note: UInt8, channel: UInt8) {
-        sendMIDI(trackID: trackID, status: 0x80 | channel, data1: note, data2: 0)
+        let st = UInt8(0x80) | (channel & 0x0F)
+        sendMIDI(trackID: trackID, status: st, data1: note, data2: 0)
     }
 
     func allNotesOff() {
         for id in trackAudioUnits.keys {
             for ch in 0..<16 {
-                sendMIDI(trackID: id, status: 0xB0 | UInt8(ch), data1: 123, data2: 0)
+                let st = UInt8(0xB0) | UInt8(ch & 0x0F)
+                sendMIDI(trackID: id, status: st, data1: 123, data2: 0)
             }
         }
     }

@@ -3,6 +3,7 @@ options:
   bundleIdPrefix: com.tracks.daw
   deploymentTarget:
     iOS: "17.2"
+
 settings:
   SWIFT_VERSION: "5.9"
 
@@ -11,14 +12,9 @@ targets:
     type: application
     platform: iOS
     sources:
-      - Sources
-      - Resources
-    info:
-      path: Resources/Info.plist
+      - path: Sources
     settings:
       PRODUCT_BUNDLE_IDENTIFIER: com.tracks.daw
       INFOPLIST_FILE: Resources/Info.plist
-      DEVELOPMENT_TEAM: ""
       TARGETED_DEVICE_FAMILY: "2"
       IPHONEOS_DEPLOYMENT_TARGET: "17.2"
-      SWIFT_ACTIVE_COMPILATION_CONDITIONS: $(inherited)
