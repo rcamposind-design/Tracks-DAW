@@ -28,23 +28,28 @@ final class MIDIManager {
     }
 
     private func handleMIDIEventList(_ eventList: MIDIEventList) {
-        var packet = eventList.packet
-        for _ in 0..<eventList.numPackets {
-            if packet.wordCount > 0 {
-                let word = packet.words.0
-                let status = UInt8((word >> 24) & 0xFF)
-                let data1 = UInt8((word >> 16) & 0xFF)
-                let data2 = UInt8((word >> 8) & 0xFF)
-                let channel = status & 0x0F
-                let msgType = status & 0xF0
-                if msgType == 0x90 || msgType == 0x80 || msgType == 0xB0 || msgType == 0xC0 || msgType == 0xE0 {
-                    DispatchQueue.main.async { [weak self] in
-                        self?.onMIDIEvent?(status, data1, data2, channel)
+        let count = Int(eventList.numPackets)
+        let wordsOffset = MemoryLayout<MIDITimeStamp>.size + MemoryLayout<UInt32>.size
+        withUnsafePointer(to: eventList.packet) { first in
+            var ptr = UnsafeRawPointer(first)
+            for _ in 0..<count {
+                let packet = ptr.assumingMemoryBound(to: MIDIEventPacket.self).pointee
+                if packet.wordCount > 0 {
+                    let word = packet.words.0
+                    let status = UInt8((word >> 24) & 0xFF)
+                    let data1 = UInt8((word >> 16) & 0xFF)
+                    let data2 = UInt8((word >> 8) & 0xFF)
+                    let channel = status & 0x0F
+                    let msgType = status & 0xF0
+                    if msgType == 0x90 || msgType == 0x80 || msgType == 0xB0 || msgType == 0xC0 || msgType == 0xE0 {
+                        DispatchQueue.main.async { [weak self] in
+                            self?.onMIDIEvent?(status, data1, data2, channel)
+                        }
                     }
                 }
+                let byteLen = wordsOffset + Int(packet.wordCount) * MemoryLayout<UInt32>.stride
+                ptr = ptr + byteLen
             }
-            guard let next = MIDIEventPacketNext(&packet) else { break }
-            packet = next.pointee
         }
     }
 
